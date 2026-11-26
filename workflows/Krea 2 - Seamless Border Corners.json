@@ -233,7 +233,7 @@
     "Node name for S&R": "PixaromaPrompt",
     "cnr_id": "ComfyUI-Pixaroma",
     "promptState": {
-     "text": "single centrally located wall Border , A blank top and bottom. The tiling should only be left to right.  Plain white background. middle pattern \n\n",
+     "text": "Spanish talavera ceramic tiles, deep cobalt blue bands, ochre and green floral motifs, cream glaze",
      "order": "mine",
      "sep": ", ",
      "accent": null,
@@ -1573,7 +1573,7 @@
     "Node name for S&R": "CLIPTextEncode"
    },
    "widgets_values": [
-    "an ornate decorative corner piece where two borders meet at a right angle, same style, colours and motifs as the border, flat, seen straight on, plain white background"
+    "the corner of the border frame, the pattern turns the corner smoothly and continuously, one ornate symmetrical ornament on the corner, flat, seen straight on"
    ],
    "color": "#14436c",
    "bgcolor": "#2a2a2a"
