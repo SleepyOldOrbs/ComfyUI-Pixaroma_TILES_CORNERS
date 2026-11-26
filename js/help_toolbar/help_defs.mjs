@@ -2250,6 +2250,52 @@ const HELP = {
     footer: "Text to picture only. A video model, a reference image, area prompts or a tiled upscaler (Ultimate SD Upscale) are not supported yet.",
   },
 
+  "SeamlessBorderPrepPixaroma": {
+    title: "Seamless Border Prep Pixaroma",
+    tagline: "Gets a border strip ready for painting a matching corner.",
+    sections: [
+      {
+        heading: "What it does",
+        body: "Seamless Tile set to Left and right makes border strips that repeat sideways. A frame also needs corners, and a corner has to join two strips at once: the top one on its right, the side one below it. This node finds the band in your strip and lays out a canvas for painting that corner: the corner square top-left, the strip running right from it, the strip turned down the side, and a mask over the corner.\n\nThe corner starts as a mitred join (45 degrees, like a picture frame). Denoise 1.0 paints a new corner; lower keeps it closer to the mitre.",
+      },
+      {
+        heading: "Where it goes",
+        body: "Put it after VAE Decode of your strip. Inpaint its canvas and mask with your usual setup (VAE Encode, Set Latent Noise Mask or InpaintModelConditioning, KSampler, VAE Decode) and a prompt for the corner, such as \"ornate corner piece of the same border\". Use the model WITHOUT Seamless Tile here, or the corner tries to join the bottom of the canvas. Then give the result and border_info to Seamless Border Kit Pixaroma.\n\nFor a mitred frame with no model, wire canvas straight into Seamless Border Kit.",
+      },
+      {
+        heading: "Good to know",
+        bullets: [
+          "The band is found by itself. If it picks the wrong rows, set band_top and band_bottom (its first and last row).",
+          "outer_edge says which edge of the band faces out of the frame. Bottom turns the band upside down.",
+          "Keep the strip's full width: the width is one repeat.",
+          "One strip at a time: pick one from a batch first.",
+        ],
+      },
+    ],
+  },
+
+  "SeamlessBorderKitPixaroma": {
+    title: "Seamless Border Kit Pixaroma",
+    tagline: "Builds a whole frame from a strip and its corner.",
+    sections: [
+      {
+        heading: "What it does",
+        body: "Takes the inpainted canvas from Seamless Border Prep's setup, cuts out the corner and fades its last few pixels (blend) into both strips, so every join matches exactly whatever the model painted. The same corner is turned for all four corners, and the strip for all four sides, so the outer edge faces out all the way round.\n\nA batch of inpainted pictures gives one kit per picture, so you can paint several corners and keep the best.",
+      },
+      {
+        heading: "What you get",
+        defs: [
+          ["kit", "A 9-slice image: four corners and one repeat of each side. Save it as border.png."],
+          ["css", "The CSS line for a box with this border, using border.png."],
+          ["corner", "The top-left corner. Turn it 90 degrees clockwise for each next corner."],
+          ["top_strip / side_strip", "One repeat of the top and the left side, for pattern brushes in Photoshop or Illustrator."],
+          ["frame_preview", "A whole frame, to check the joins by eye."],
+        ],
+      },
+    ],
+    footer: "A corner is only as good as the model's inpainting: try a few seeds, and a denoise between 0.7 and 1.0.",
+  },
+
   "SeamlessMaterialPixaroma": {
     title: "Seamless Material Pixaroma",
     tagline: "Turns a seamless tile into a 3D material for Blender.",
