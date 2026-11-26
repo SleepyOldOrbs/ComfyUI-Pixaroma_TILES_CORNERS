@@ -2256,7 +2256,7 @@ const HELP = {
     sections: [
       {
         heading: "What it does",
-        body: "Seamless Tile set to Left and right makes border strips that repeat sideways. A frame also needs corners, and a corner has to join two strips at once: the top one on its right, the side one below it. This node finds the band in your strip and lays out a canvas for painting that corner: the corner square top-left, the strip running right from it, the strip turned down the side, and a mask over the corner.\n\nThe corner starts as a mitred join (45 degrees, like a picture frame). Denoise 1.0 paints a new corner; lower keeps it closer to the mitre.",
+        body: "Seamless Tile set to Left and right makes border strips that repeat sideways. A frame also needs corners, and a corner has to join two strips at once: the top one on its right, the side one below it. This node finds the band in your strip and lays out a canvas for painting that corner: the corner square top-left, the strip running right from it, the strip turned down the side, and a mask.\n\nThe corner starts as a mitred join (45 degrees, like a picture frame). Denoise 1.0 paints a new corner; lower keeps it closer to the mitre.",
       },
       {
         heading: "Where it goes",
@@ -2267,6 +2267,8 @@ const HELP = {
         bullets: [
           "The band is found by itself. If it picks the wrong rows, set band_top and band_bottom (its first and last row).",
           "outer_edge says which edge of the band faces out of the frame. Bottom turns the band upside down.",
+          "repaint: Seam (the default) masks only a band along the corner's diagonal, so every band of the strip carries on round the corner and the model only redraws where they turn. seam_width sets how wide that band is. Corner repaints the whole corner square, for a separate corner block.",
+          "In the prompt, describe the border's style and the corner, not a plain background: the model fills the masked area with whatever the prompt asks for.",
           "Keep the strip's full width: the width is one repeat.",
           "One strip at a time: pick one from a batch first.",
         ],

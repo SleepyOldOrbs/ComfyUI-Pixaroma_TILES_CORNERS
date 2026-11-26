@@ -16,7 +16,8 @@ import logging
 import torch
 import torch.nn.functional as F
 
-from ._border_helpers import BorderError, blend_corner, build_canvas, css_line, find_band, frame, side_from_band
+from ._border_helpers import MASK_MODES, BorderError, blend_corner, build_canvas, corner_mask, css_line, find_band, \
+    frame, keep_unmasked, side_from_band
 
 # Wire type between the two nodes: a dict (band tensor, background colour, sizes). A plain duplicated string like
 # PIXAROMA_OUTPAINT_INFO.
@@ -48,13 +49,24 @@ class SeamlessBorderPrepPixaroma:
                     "tooltip": "Last row of the band. 0 = find it automatically.",
                 }),
                 "context": ("FLOAT", {
-                    "default": 2.0, "min": 0.5, "max": 6.0, "step": 0.25,
+                    "default": 1.0, "min": 0.5, "max": 6.0, "step": 0.25,
                     "tooltip": "How much strip the model sees beside the corner, in band thicknesses. More gives the "
-                               "model more of the pattern to follow, and a bigger canvas.",
+                               "model more of the pattern to follow, and a bigger canvas (never under 1024 px).",
                 }),
                 "outer_edge": (list(OUTER_EDGES), {
                     "default": "Top",
                     "tooltip": "Which edge of the band faces out of the frame. Bottom turns the band upside down.",
+                }),
+                "repaint": (list(MASK_MODES), {
+                    "default": "Seam",
+                    "tooltip": "What the model repaints. Seam = only a band along the mitre's diagonal: the strip's "
+                               "bands carry on round the corner and the model redraws where they turn (most "
+                               "coherent). Corner = the whole corner square: a new corner piece, less tied to the strip.",
+                }),
+                "seam_width": ("FLOAT", {
+                    "default": 0.25, "min": 0.05, "max": 1.0, "step": 0.05,
+                    "tooltip": "Seam only: how wide the repainted band along the diagonal is, as a share of the "
+                               "band thickness. Wider gives the model more room for a corner motif.",
                 }),
             },
         }
@@ -64,13 +76,13 @@ class SeamlessBorderPrepPixaroma:
     OUTPUT_TOOLTIPS = (
         "The canvas to inpaint. The corner already holds a mitred join: denoise 1.0 paints a new corner, lower keeps "
         "it closer to the mitre. Wire it straight into Seamless Border Kit for a mitred frame with no model.",
-        "White over the corner: the only part the model should paint.",
+        "White where the model should paint: along the corner's diagonal (Seam) or the whole corner (Corner).",
         "Wire into Seamless Border Kit.",
     )
     FUNCTION = "prep"
     CATEGORY = "👑 Pixaroma/🖼️ Image"
 
-    def prep(self, strip, band_top=0, band_bottom=0, context=2.0, outer_edge="Top"):
+    def prep(self, strip, band_top=0, band_bottom=0, context=1.0, outer_edge="Top", repaint="Seam", seam_width=0.25):
         if strip.shape[0] != 1:
             raise BorderError(f"Seamless Border Prep takes one strip, got a batch of {strip.shape[0]}. Pick one "
                               "first (for example with an image-from-batch node).")
@@ -79,12 +91,12 @@ class SeamlessBorderPrepPixaroma:
         band = img[top:bottom].clone()
         if outer_edge == "Bottom":
             band = band.flip(0)
-        canvas, mask, size = build_canvas(band, bg, context)
+        canvas, mask_img, size = build_canvas(band, bg, context, repaint, seam_width)
         t, w = band.shape[0], band.shape[1]
         logging.info(f"[Seamless Border Pixaroma] band rows {top}-{bottom - 1} ({t} px thick, repeat {w} px), "
               f"canvas {size} x {size}")
-        info = {"band": band, "bg": bg, "size": size}
-        return (canvas.unsqueeze(0), mask.unsqueeze(0), info)
+        info = {"band": band, "bg": bg, "size": size, "mask": corner_mask(band.shape[0], repaint, seam_width)}
+        return (canvas.unsqueeze(0), mask_img.unsqueeze(0), info)
 
 
 class SeamlessBorderKitPixaroma:
@@ -139,7 +151,10 @@ class SeamlessBorderKitPixaroma:
         band, bg = band.to(images), bg.to(images)
         kits, corners, previews = [], [], []
         for img in images:
-            corner = blend_corner(img[:t, :t].clamp(0, 1), band, blend)
+            corner = img[:t, :t].clamp(0, 1)
+            if "mask" in border_info:
+                corner = keep_unmasked(corner, band, border_info["mask"])
+            corner = blend_corner(corner, band, blend)
             corners.append(corner)
             kits.append(frame(corner, band, bg, 1))
             previews.append(frame(corner, band, bg, preview_repeats))

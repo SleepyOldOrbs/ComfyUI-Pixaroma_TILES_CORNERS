@@ -1,8 +1,8 @@
 {
  "id": "5b0c3c1e-6d1f-4c6a-9f0e-2b7e5a1d0c37",
  "revision": 0,
- "last_node_id": 37,
- "last_link_id": 40,
+ "last_node_id": 40,
+ "last_link_id": 46,
  "nodes": [
   {
    "id": 1,
@@ -221,11 +221,12 @@
      "name": "text",
      "type": "STRING",
      "links": [
-      17
+      41,
+      43
      ]
     }
    ],
-   "title": "Prompt Pixaroma (1. your border strip)",
+   "title": "Prompt Pixaroma (1. describe your border's style)",
    "properties": {
     "aux_id": "ComfyUI-Pixaroma.git",
     "ver": "11d350005375598bf3b29e044965694b487b8c6d",
@@ -240,7 +241,7 @@
     }
    },
    "widgets_values": [
-    "single centrally located wall border, a blank top and bottom, the pattern only repeats left to right, plain white background, middle pattern of "
+    "Spanish talavera ceramic tiles, deep cobalt blue bands, ochre and green floral motifs, cream glaze"
    ],
    "widgets_values_named": {
     "pix_prompt_ui": ""
@@ -434,7 +435,7 @@
      "widget": {
       "name": "text"
      },
-     "link": 17
+     "link": 42
     }
    ],
    "outputs": [
@@ -623,7 +624,7 @@
      "type": "MODEL",
      "links": [
       2,
-      28
+      45
      ]
     }
    ],
@@ -1390,7 +1391,7 @@
     "Node name for S&R": "Note"
    },
    "widgets_values": [
-    "BORDER CORNERS (stage 2, below)\n\n1. Stage 1 above makes the border strip (Seamless Tile is set to Left and right). Describe the border in prompt 1.\n2. Seamless Border Prep finds the band and lays out a canvas: corner top-left, strip to the right, strip turned down the side.\n3. The corner KSampler paints ONLY the corner (mask), using the model WITHOUT Seamless Tile and the normal VAE.\n4. Seamless Border Kit joins the corner exactly to both strips and builds the frame.\n\nTips:\n- Describe the corner in prompt 5.\n- Denoise 0.7 keeps it close to a mitred (45 degree) join, 1.0 paints a new corner.\n- Like the strip but not the corner? Set the Seed to fixed and run again with a different corner seed.\n- Mitred corner with no model: bypass the corner KSampler group by wiring Prep's canvas into Kit's image.\n- Save the kit image as border.png and use the CSS line for websites."
+    "BORDER CORNERS (stage 2, below)\n\nPrompt 1 is now just the border's STYLE. Two Text Join nodes turn it into the strip prompt (stage 1) and the corner prompt (stage 2), so 'plain white background' only goes to the strip.\n\n1. Stage 1 makes the border strip (Seamless Tile: Left and right).\n2. Seamless Border Prep lays out the corner as a mitre (45 degree join) and masks only a band along the diagonal (repaint: Seam). Every band of the strip carries on round the corner; the model only redraws where they turn.\n3. The corner KSampler paints the seam with the model WITHOUT Seamless Tile and the normal VAE.\n4. Seamless Border Kit puts the strip's own pixels back outside the seam and joins everything exactly.\n\nTips:\n- Like the strip? Set Seed to fixed; the corner sampler re-rolls on every run.\n- seam_width 0.25 = a narrow turn; 0.4-0.6 = room for a bigger corner motif.\n- repaint: Corner repaints the whole corner square (a separate corner block).\n- Keep blend low (8-16): a high blend fades the strip into the corner.\n- Mitred frame with no model: wire Prep's canvas straight into Kit's image."
    ]
   },
   {
@@ -1449,6 +1450,24 @@
      "widget": {
       "name": "outer_edge"
      }
+    },
+    {
+     "localized_name": "repaint",
+     "name": "repaint",
+     "type": "COMBO",
+     "link": null,
+     "widget": {
+      "name": "repaint"
+     }
+    },
+    {
+     "localized_name": "seam_width",
+     "name": "seam_width",
+     "type": "FLOAT",
+     "link": null,
+     "widget": {
+      "name": "seam_width"
+     }
     }
    ],
    "outputs": [
@@ -1486,8 +1505,10 @@
    "widgets_values": [
     0,
     0,
-    2.0,
-    "Top"
+    1.0,
+    "Top",
+    "Seam",
+    0.25
    ],
    "color": "#14436c",
    "bgcolor": "#2a2a2a"
@@ -1517,7 +1538,7 @@
      "localized_name": "text",
      "name": "text",
      "type": "STRING",
-     "link": null,
+     "link": 44,
      "widget": {
       "name": "text"
      }
@@ -1534,7 +1555,7 @@
      ]
     }
    ],
-   "title": "Prompt 5: the corner",
+   "title": "CLIP Text Encode (corner prompt)",
    "properties": {
     "cnr_id": "comfy-core",
     "Node name for S&R": "CLIPTextEncode"
@@ -1690,7 +1711,7 @@
      "localized_name": "model",
      "name": "model",
      "type": "MODEL",
-     "link": 28
+     "link": 46
     },
     {
      "localized_name": "positive",
@@ -2131,6 +2152,158 @@
    "widgets_values": [
     "Seamless Borders/top_strip"
    ]
+  },
+  {
+   "id": 38,
+   "type": "PixaromaTextJoinTwo",
+   "pos": [
+    460,
+    700
+   ],
+   "size": [
+    500,
+    220
+   ],
+   "flags": {},
+   "order": 38,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "text_1",
+     "name": "text_1",
+     "type": "STRING",
+     "link": null,
+     "widget": {
+      "name": "text_1"
+     },
+     "shape": 7
+    },
+    {
+     "localized_name": "text_2",
+     "name": "text_2",
+     "type": "STRING",
+     "link": 41,
+     "widget": {
+      "name": "text_2"
+     },
+     "shape": 7
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "text",
+     "name": "text",
+     "type": "STRING",
+     "links": [
+      42
+     ]
+    }
+   ],
+   "title": "Text Join (strip prompt = layout + style)",
+   "properties": {
+    "aux_id": "SleepyOldOrbs/ComfyUI-Pixaroma_TILES_CORNERS",
+    "cnr_id": "ComfyUI-Pixaroma",
+    "Node name for S&R": "PixaromaTextJoinTwo"
+   },
+   "widgets_values": [
+    "single centrally located wall border, a blank top and bottom, plain white background, the pattern only repeats left to right, flat, seen straight on",
+    ""
+   ]
+  },
+  {
+   "id": 39,
+   "type": "PixaromaTextJoinTwo",
+   "pos": [
+    460,
+    1780
+   ],
+   "size": [
+    500,
+    220
+   ],
+   "flags": {},
+   "order": 39,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "text_1",
+     "name": "text_1",
+     "type": "STRING",
+     "link": 43,
+     "widget": {
+      "name": "text_1"
+     },
+     "shape": 7
+    },
+    {
+     "localized_name": "text_2",
+     "name": "text_2",
+     "type": "STRING",
+     "link": null,
+     "widget": {
+      "name": "text_2"
+     },
+     "shape": 7
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "text",
+     "name": "text",
+     "type": "STRING",
+     "links": [
+      44
+     ]
+    }
+   ],
+   "title": "Text Join (corner prompt = style + corner)",
+   "properties": {
+    "aux_id": "SleepyOldOrbs/ComfyUI-Pixaroma_TILES_CORNERS",
+    "cnr_id": "ComfyUI-Pixaroma",
+    "Node name for S&R": "PixaromaTextJoinTwo"
+   },
+   "widgets_values": [
+    "",
+    "the corner of a tiled border frame where every band turns 90 degrees, the bands meet on the diagonal with a decorative corner motif, flat, seen straight on"
+   ]
+  },
+  {
+   "id": 40,
+   "type": "DifferentialDiffusion",
+   "pos": [
+    1424,
+    1320
+   ],
+   "size": [
+    300,
+    58
+   ],
+   "flags": {},
+   "order": 40,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "model",
+     "name": "model",
+     "type": "MODEL",
+     "link": 45
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "MODEL",
+     "name": "MODEL",
+     "type": "MODEL",
+     "links": [
+      46
+     ]
+    }
+   ],
+   "title": "Differential Diffusion (soft mask edges)",
+   "properties": {
+    "cnr_id": "comfy-core",
+    "Node name for S&R": "DifferentialDiffusion"
+   }
   }
  ],
  "links": [
@@ -2263,14 +2436,6 @@
    "IMAGE"
   ],
   [
-   17,
-   4,
-   0,
-   7,
-   1,
-   "STRING"
-  ],
-  [
    18,
    5,
    0,
@@ -2349,14 +2514,6 @@
    29,
    1,
    "MASK"
-  ],
-  [
-   28,
-   10,
-   0,
-   30,
-   0,
-   "MODEL"
   ],
   [
    29,
@@ -2453,6 +2610,54 @@
    37,
    0,
    "IMAGE"
+  ],
+  [
+   41,
+   4,
+   0,
+   38,
+   1,
+   "STRING"
+  ],
+  [
+   42,
+   38,
+   0,
+   7,
+   1,
+   "STRING"
+  ],
+  [
+   43,
+   4,
+   0,
+   39,
+   0,
+   "STRING"
+  ],
+  [
+   44,
+   39,
+   0,
+   26,
+   1,
+   "STRING"
+  ],
+  [
+   45,
+   10,
+   0,
+   40,
+   0,
+   "MODEL"
+  ],
+  [
+   46,
+   40,
+   0,
+   30,
+   0,
+   "MODEL"
   ]
  ],
  "groups": [],

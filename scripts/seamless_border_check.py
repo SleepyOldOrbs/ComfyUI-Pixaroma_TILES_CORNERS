@@ -110,8 +110,8 @@ def check_geometry(t, w):
         # the whole frame looks the same turned 90 degrees: every side and corner matches
         eq(torch.rot90(f, -1, dims=(0, 1)), f, "frame is the same turned a quarter")
     # canvas
-    canvas, mask, p = bh.build_canvas(band, BG, 2.0)
-    assert p % 64 == 0 and p >= 3 * t, p
+    canvas, mask, p = bh.build_canvas(band, BG, 2.0, "Corner")
+    assert p % 64 == 0 and p >= 3 * t and p >= bh.MIN_CANVAS, p
     eq(canvas[:t, :t], m, "canvas corner pre-filled with the mitre")
     k = min(w, p - t)
     eq(canvas[:t, t:t + k], band[:, :k], "canvas top strip")
@@ -119,6 +119,21 @@ def check_geometry(t, w):
     eq(canvas[t:t + min(w, p - t), :t], side[:min(w, p - t)], "canvas side")
     eq(canvas[p - 1, p - 1], BG, "canvas inside is background")
     assert mask[:t, :t].min() == 1 and mask.sum() == t * t
+    # seam mask: along the diagonal, symmetric, off near the corner's other two corners, soft at its edges
+    sm = bh.corner_mask(t, "Seam", 0.25)
+    eq(sm, sm.T, "seam mask symmetric")
+    assert sm.diagonal().min() == 1, "seam mask covers the diagonal"
+    assert sm[0, t - 1] == 0 and sm[t - 1, 0] == 0, "seam mask leaves the far corners alone"
+    if t >= 64:
+        assert ((sm > 0) & (sm < 1)).any(), "seam mask is feathered"
+    _, smask, _ = bh.build_canvas(band, BG, 2.0, "Seam")
+    eq(smask[:t, :t], sm, "canvas carries the seam mask")
+    assert smask[t:].sum() == 0 and smask[:, t:].sum() == 0
+    # whatever the model returns outside the mask, the strip's own pixels come back exactly
+    noisy = torch.rand(t, t, 3, generator=torch.Generator().manual_seed(3))
+    kept = bh.keep_unmasked(noisy, band, sm)
+    eq(kept[sm == 0], m[sm == 0], "unmasked corner pixels are the mitre")
+    eq(kept[sm == 1], noisy[sm == 1], "masked corner pixels are the painted ones")
 
 
 def check_nodes():
@@ -134,6 +149,12 @@ def check_nodes():
     assert corner.shape == (1, t, t, 3) and top.shape == (1, t, w, 3) and side.shape == (1, w, t, 3)
     assert prev.shape == (1, 2 * t + 2 * w, 2 * t + 2 * w, 3)
     eq(corner[0], bh.mitre(band), "mitred kit when the canvas goes straight in")
+    assert canvas.shape[1] >= bh.MIN_CANVAS
+    # a VAE round trip softens the whole canvas: Kit restores the unmasked part of the corner exactly
+    soft = canvas * 0.9 + 0.05
+    sm = info["mask"]
+    c2 = kit.kit(soft, info, 0, 1)[1][0]
+    eq(c2[sm == 0], bh.mitre(band)[sm == 0], "Kit keeps the strip pixels outside the seam")
     assert "96px" in css and "border-image" in css
     # an inpaint result returned at twice the size, in a batch of 2 corner options
     big = torch.nn.functional.interpolate(canvas.permute(0, 3, 1, 2), scale_factor=2, mode="bilinear")

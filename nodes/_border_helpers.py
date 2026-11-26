@@ -20,6 +20,9 @@ import torch
 
 CANVAS_MULTIPLE = 64     # every model's latent fits a canvas that is a multiple of 64 px
 MIN_BAND = 16            # thinner than this is not a border worth a corner
+MIN_CANVAS = 1024        # smaller canvases are too small for today's models to draw well
+MASK_MODES = ("Seam", "Corner")
+SEAM_FEATHER = 0.5       # the seam mask fades out over this share of its half-width, past the solid part
 EDGE_FRACTION = 0.04     # rows at the top and at the bottom sampled for the background colour
 PIXEL_THRESHOLD = 0.1    # a pixel this far from the background (any channel, 0..1) is part of the drawing
 ROW_COVERAGE = 0.3       # a row with more than this share of drawn pixels belongs to the band
@@ -114,6 +117,16 @@ def mitre(band):
     return torch.where(_upper(band.shape[0]).unsqueeze(-1), target_h(band), target_v(band))
 
 
+def keep_unmasked(painted, band, mask):
+    """The painted corner where the mask says so, the mitre (the strip's own pixels) elsewhere.
+
+    The canvas goes through VAE encode / decode, which softens every pixel a little; this puts the untouched part
+    back exactly, fading with the mask's feather.
+    """
+    m = mask.to(painted).unsqueeze(-1)
+    return mitre(band).to(painted) * (1 - m) + painted * m
+
+
 def blend_corner(corner, band, blend):
     """Fade the corner's last `blend` columns into the top strip and its last `blend` rows into the side.
 
@@ -134,16 +147,34 @@ def blend_corner(corner, band, blend):
 
 
 def canvas_size(t, context):
-    """The padded canvas side: corner + `context` band thicknesses of strip, rounded up to CANVAS_MULTIPLE."""
-    s = t + max(1, round(float(context) * t))
+    """The padded canvas side: corner + `context` band thicknesses of strip, at least MIN_CANVAS, rounded up to
+    CANVAS_MULTIPLE."""
+    s = max(MIN_CANVAS, t + max(1, round(float(context) * t)))
     return int(math.ceil(s / CANVAS_MULTIPLE) * CANVAS_MULTIPLE)
 
 
-def build_canvas(band, bg, context):
+def corner_mask(t, mode="Seam", seam_width=0.25, dtype=torch.float32):
+    """[T, T] mask of what the model repaints in the corner.
+
+    Corner: the whole square. Seam: a band along the mitre's diagonal, solid for seam_width x T across and fading
+    out over SEAM_FEATHER of that half-width beyond, so the bands of the strip stay in the corner and the model only
+    redraws where they turn.
+    """
+    if mode == "Corner":
+        return torch.ones(t, t, dtype=dtype)
+    y = torch.arange(t, dtype=dtype).view(-1, 1)
+    x = torch.arange(t, dtype=dtype).view(1, -1)
+    d = (x - y).abs() / math.sqrt(2)                      # distance from the diagonal, in pixels
+    half = max(1.0, float(seam_width) * t / 2)
+    feather = max(1.0, half * SEAM_FEATHER)
+    return ((half + feather - d) / feather).clamp(0, 1)
+
+
+def build_canvas(band, bg, context, mode="Seam", seam_width=0.25):
     """(canvas [P, P, 3], mask [P, P], P) for inpainting the top-left corner.
 
     Corner pre-filled with the mitre; the top strip runs right from it and the left side runs down from it, both to
-    the canvas edge; the inside of the frame is the background colour. Mask = 1 on the corner only.
+    the canvas edge; the inside of the frame is the background colour. Mask = corner_mask in the corner, 0 elsewhere.
     """
     t = band.shape[0]
     p = canvas_size(t, context)
@@ -152,7 +183,7 @@ def build_canvas(band, bg, context):
     canvas[:t, t:] = strip_cols(band, torch.arange(p - t))
     canvas[t:, :t] = side_rows(band, torch.arange(p - t))
     mask = torch.zeros(p, p, dtype=band.dtype)
-    mask[:t, :t] = 1.0
+    mask[:t, :t] = corner_mask(t, mode, seam_width, band.dtype)
     return canvas, mask, p
 
 
