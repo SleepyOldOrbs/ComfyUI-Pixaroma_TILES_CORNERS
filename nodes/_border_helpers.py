@@ -22,6 +22,7 @@ CANVAS_MULTIPLE = 64     # every model's latent fits a canvas that is a multiple
 MIN_BAND = 16            # thinner than this is not a border worth a corner
 MIN_CANVAS = 1024        # smaller canvases are too small for today's models to draw well
 MASK_MODES = ("Seam", "Corner")
+MIRROR_ROWS = 128        # the mirror-line search samples about this many rows (and offsets) of the band
 SEAM_FEATHER = 0.5       # the seam mask fades out over this share of its half-width, past the solid part
 EDGE_FRACTION = 0.04     # rows at the top and at the bottom sampled for the background colour
 PIXEL_THRESHOLD = 0.1    # a pixel this far from the background (any channel, 0..1) is part of the drawing
@@ -74,6 +75,27 @@ def find_band(img, top=0, bottom=0):
             "band_top and band_bottom to the band's first and last row, or check that the strip has a band across "
             "a plain background.")
     return top, bottom, bg
+
+
+def mirror_error(band, s, step=1):
+    """How far the band is from its mirror image about the line between columns s-1 and s (0 = exact), over the
+    part a mitre at that line shows: k columns either side on row y, for k < T - y. `step` samples every step-th
+    row and offset."""
+    t, w = band.shape[0], band.shape[1]
+    k = torch.arange(0, t, step)
+    diff = (band[k][:, (s + k) % w] - band[k][:, (s - 1 - k) % w]).abs().mean(-1)
+    return diff[k.view(1, -1) < (t - k).view(-1, 1)].mean().item()
+
+
+def mirror_column(band):
+    """The column s whose left edge is the band's best mirror line.
+
+    A strip repeats, so the corner can sit at any column. Rolled so that column s is column 0, the top strip and the
+    side are mirror images across the corner's diagonal, and the mitre reads as a designed corner (a motif centred
+    on the turn) instead of an arbitrary cut. Every column is tried, on about MIRROR_ROWS sampled rows.
+    """
+    step = max(1, band.shape[0] // MIRROR_ROWS)
+    return min(range(band.shape[1]), key=lambda s: mirror_error(band, s, step))
 
 
 def strip_cols(band, cols):

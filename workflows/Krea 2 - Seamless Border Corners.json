@@ -1,8 +1,8 @@
 {
  "id": "5b0c3c1e-6d1f-4c6a-9f0e-2b7e5a1d0c37",
  "revision": 0,
- "last_node_id": 40,
- "last_link_id": 46,
+ "last_node_id": 42,
+ "last_link_id": 49,
  "nodes": [
   {
    "id": 1,
@@ -1391,7 +1391,7 @@
     "Node name for S&R": "Note"
    },
    "widgets_values": [
-    "BORDER CORNERS (stage 2, below)\n\nPrompt 1 is now just the border's STYLE. Two Text Join nodes turn it into the strip prompt (stage 1) and the corner prompt (stage 2), so 'plain white background' only goes to the strip.\n\n1. Stage 1 makes the border strip (Seamless Tile: Left and right).\n2. Seamless Border Prep lays out the corner as a mitre (45 degree join) and masks only a band along the diagonal (repaint: Seam). Every band of the strip carries on round the corner; the model only redraws where they turn.\n3. The corner KSampler paints the seam with the model WITHOUT Seamless Tile and the normal VAE.\n4. Seamless Border Kit puts the strip's own pixels back outside the seam and joins everything exactly.\n\nTips:\n- Like the strip? Set Seed to fixed; the corner sampler re-rolls on every run.\n- seam_width 0.25 = a narrow turn; 0.4-0.6 = room for a bigger corner motif.\n- repaint: Corner repaints the whole corner square (a separate corner block).\n- Keep blend low (8-16): a high blend fades the strip into the corner.\n- Mitred frame with no model: wire Prep's canvas straight into Kit's image."
+    "BORDER CORNERS (stage 2, below)\n\nPrompt 1 is just the border's STYLE. Two Text Join nodes turn it into the strip prompt (stage 1) and the corner prompt (stage 2).\n\n1. Stage 1 makes the border strip (Seamless Tile: Left and right).\n2. Seamless Border Prep turns the corner where the pattern mirrors itself (corner_at: Mirror line), lays it out as a mitre (45 degree join) and masks a band along the diagonal (repaint: Seam).\n3. The corner KSampler paints an ornament on the turn with the model WITHOUT Seamless Tile (denoise 0.8).\n4. Seamless Border Kit puts the strip's own pixels back outside the seam and joins everything exactly.\n\nTwo frames come out: the painted one and, on the right, the mitred one with no model. On the mirror line the mitre alone often looks like a designed corner; keep whichever you like.\n\nTips:\n- Like the strip? Set Seed to fixed; the corner sampler re-rolls on every run.\n- Keep the corner prompt free of 'diagonal', 'tiled' or 'meet': those make the model draw a line along the join.\n- Denoise 0.9 and up can paint a bar along the diagonal; 0.7 stays close to the mitre.\n- seam_width 0.25 = a small ornament; 0.4 (default here) = room for a bigger one.\n- Keep blend low (8-16): a high blend fades the strip into the corner."
    ]
   },
   {
@@ -1403,7 +1403,7 @@
    ],
    "size": [
     384,
-    170
+    194
    ],
    "flags": {},
    "order": 25,
@@ -1468,6 +1468,15 @@
      "widget": {
       "name": "seam_width"
      }
+    },
+    {
+     "localized_name": "corner_at",
+     "name": "corner_at",
+     "type": "COMBO",
+     "link": null,
+     "widget": {
+      "name": "corner_at"
+     }
     }
    ],
    "outputs": [
@@ -1476,7 +1485,8 @@
      "name": "canvas",
      "type": "IMAGE",
      "links": [
-      24
+      24,
+      47
      ]
     },
     {
@@ -1492,7 +1502,8 @@
      "name": "border_info",
      "type": "PIXAROMA_BORDER_INFO",
      "links": [
-      35
+      35,
+      48
      ]
     }
    ],
@@ -1508,7 +1519,8 @@
     1.0,
     "Top",
     "Seam",
-    0.25
+    0.4,
+    "Mirror line"
    ],
    "color": "#14436c",
    "bgcolor": "#2a2a2a"
@@ -1808,7 +1820,7 @@
     1,
     "er_sde",
     "simple",
-    0.9
+    0.8
    ],
    "color": "#14436c",
    "bgcolor": "#2a2a2a"
@@ -2264,7 +2276,7 @@
    },
    "widgets_values": [
     "",
-    "the corner of a tiled border frame where every band turns 90 degrees, the bands meet on the diagonal with a decorative corner motif, flat, seen straight on"
+    "the corner of the border frame, the pattern turns the corner smoothly and continuously, one ornate symmetrical ornament on the corner, flat, seen straight on"
    ]
   },
   {
@@ -2303,6 +2315,134 @@
    "properties": {
     "cnr_id": "comfy-core",
     "Node name for S&R": "DifferentialDiffusion"
+   }
+  },
+  {
+   "id": 41,
+   "type": "SeamlessBorderKitPixaroma",
+   "pos": [
+    3220,
+    1420
+   ],
+   "size": [
+    384,
+    170
+   ],
+   "flags": {},
+   "order": 34,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "image",
+     "name": "image",
+     "type": "IMAGE",
+     "link": 47
+    },
+    {
+     "localized_name": "border_info",
+     "name": "border_info",
+     "type": "PIXAROMA_BORDER_INFO",
+     "link": 48
+    },
+    {
+     "localized_name": "blend",
+     "name": "blend",
+     "type": "INT",
+     "link": null,
+     "widget": {
+      "name": "blend"
+     }
+    },
+    {
+     "localized_name": "preview_repeats",
+     "name": "preview_repeats",
+     "type": "INT",
+     "link": null,
+     "widget": {
+      "name": "preview_repeats"
+     }
+    }
+   ],
+   "outputs": [
+    {
+     "localized_name": "kit",
+     "name": "kit",
+     "type": "IMAGE",
+     "links": []
+    },
+    {
+     "localized_name": "corner",
+     "name": "corner",
+     "type": "IMAGE",
+     "links": []
+    },
+    {
+     "localized_name": "top_strip",
+     "name": "top_strip",
+     "type": "IMAGE",
+     "links": []
+    },
+    {
+     "localized_name": "side_strip",
+     "name": "side_strip",
+     "type": "IMAGE",
+     "links": []
+    },
+    {
+     "localized_name": "frame_preview",
+     "name": "frame_preview",
+     "type": "IMAGE",
+     "links": [
+      49
+     ]
+    },
+    {
+     "localized_name": "css",
+     "name": "css",
+     "type": "STRING",
+     "links": []
+    }
+   ],
+   "title": "Seamless Border Kit Pixaroma (mitred frame, no model)",
+   "properties": {
+    "aux_id": "SleepyOldOrbs/ComfyUI-Pixaroma_TILES_CORNERS",
+    "cnr_id": "ComfyUI-Pixaroma",
+    "Node name for S&R": "SeamlessBorderKitPixaroma"
+   },
+   "widgets_values": [
+    12,
+    3
+   ],
+   "color": "#14436c",
+   "bgcolor": "#2a2a2a"
+  },
+  {
+   "id": 42,
+   "type": "PreviewImage",
+   "pos": [
+    3220,
+    1640
+   ],
+   "size": [
+    700,
+    720
+   ],
+   "flags": {},
+   "order": 35,
+   "mode": 0,
+   "inputs": [
+    {
+     "localized_name": "images",
+     "name": "images",
+     "type": "IMAGE",
+     "link": 49
+    }
+   ],
+   "outputs": [],
+   "title": "Mitred frame (no model) - compare with the painted one",
+   "properties": {
+    "cnr_id": "comfy-core",
+    "Node name for S&R": "PreviewImage"
    }
   }
  ],
@@ -2658,6 +2798,30 @@
    30,
    0,
    "MODEL"
+  ],
+  [
+   47,
+   25,
+   0,
+   41,
+   0,
+   "IMAGE"
+  ],
+  [
+   48,
+   25,
+   2,
+   41,
+   1,
+   "PIXAROMA_BORDER_INFO"
+  ],
+  [
+   49,
+   41,
+   4,
+   42,
+   0,
+   "IMAGE"
   ]
  ],
  "groups": [],

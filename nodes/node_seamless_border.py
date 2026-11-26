@@ -17,12 +17,13 @@ import torch
 import torch.nn.functional as F
 
 from ._border_helpers import MASK_MODES, BorderError, blend_corner, build_canvas, corner_mask, css_line, find_band, \
-    frame, keep_unmasked, side_from_band
+    frame, keep_unmasked, mirror_column, side_from_band
 
 # Wire type between the two nodes: a dict (band tensor, background colour, sizes). A plain duplicated string like
 # PIXAROMA_OUTPAINT_INFO.
 PIXAROMA_BORDER_INFO = "PIXAROMA_BORDER_INFO"
 OUTER_EDGES = ("Top", "Bottom")
+CORNER_AT = ("Mirror line", "Strip edge")
 
 
 class SeamlessBorderPrepPixaroma:
@@ -64,9 +65,16 @@ class SeamlessBorderPrepPixaroma:
                                "coherent). Corner = the whole corner square: a new corner piece, less tied to the strip.",
                 }),
                 "seam_width": ("FLOAT", {
-                    "default": 0.25, "min": 0.05, "max": 1.0, "step": 0.05,
+                    "default": 0.4, "min": 0.05, "max": 1.0, "step": 0.05,
                     "tooltip": "Seam only: how wide the repainted band along the diagonal is, as a share of the "
-                               "band thickness. Wider gives the model more room for a corner motif.",
+                               "band thickness. 0.25 = a small ornament on the turn; 0.4 = room for a bigger one.",
+                }),
+                "corner_at": (list(CORNER_AT), {
+                    "default": "Mirror line",
+                    "tooltip": "Where along the strip the corner turns. Mirror line = the point where the pattern "
+                               "mirrors itself (a motif's centre or a tile edge): both halves of the corner match "
+                               "and a motif sits on the turn. Strip edge = the strip's own left edge. The strips "
+                               "Kit outputs start at the same point.",
                 }),
             },
         }
@@ -82,7 +90,8 @@ class SeamlessBorderPrepPixaroma:
     FUNCTION = "prep"
     CATEGORY = "👑 Pixaroma/🖼️ Image"
 
-    def prep(self, strip, band_top=0, band_bottom=0, context=1.0, outer_edge="Top", repaint="Seam", seam_width=0.25):
+    def prep(self, strip, band_top=0, band_bottom=0, context=1.0, outer_edge="Top", repaint="Seam", seam_width=0.4,
+             corner_at="Mirror line"):
         if strip.shape[0] != 1:
             raise BorderError(f"Seamless Border Prep takes one strip, got a batch of {strip.shape[0]}. Pick one "
                               "first (for example with an image-from-batch node).")
@@ -91,10 +100,12 @@ class SeamlessBorderPrepPixaroma:
         band = img[top:bottom].clone()
         if outer_edge == "Bottom":
             band = band.flip(0)
+        start = mirror_column(band) if corner_at == "Mirror line" else 0
+        band = band.roll(-start, dims=1)
         canvas, mask_img, size = build_canvas(band, bg, context, repaint, seam_width)
         t, w = band.shape[0], band.shape[1]
         logging.info(f"[Seamless Border Pixaroma] band rows {top}-{bottom - 1} ({t} px thick, repeat {w} px), "
-              f"canvas {size} x {size}")
+              f"corner at column {start}, canvas {size} x {size}")
         info = {"band": band, "bg": bg, "size": size, "mask": corner_mask(band.shape[0], repaint, seam_width)}
         return (canvas.unsqueeze(0), mask_img.unsqueeze(0), info)
 

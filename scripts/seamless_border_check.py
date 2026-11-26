@@ -136,10 +136,24 @@ def check_geometry(t, w):
     eq(kept[sm == 1], noisy[sm == 1], "masked corner pixels are the painted ones")
 
 
+def check_mirror(t, w, shift):
+    """A band that mirrors itself, rolled: the search finds a mirror line and the mitre there is symmetric."""
+    half = make_band(t, w // 2, seed=w)
+    band = torch.cat([half, half.flip(1)], 1).roll(shift, dims=1)
+    s = bh.mirror_column(band)
+    assert bh.mirror_error(band, s) < 1e-6, (t, w, shift, s)
+    m = bh.mitre(band.roll(-s, dims=1))
+    eq(m, m.transpose(0, 1), "mitre on the mirror line is symmetric across its diagonal")
+    img = BG.view(1, 1, 3).expand(3 * t, band.shape[1], 3).clone()
+    img[t:2 * t] = band
+    _, _, info = nb.SeamlessBorderPrepPixaroma().prep(img.unsqueeze(0))
+    eq(info["band"], band.roll(-s, dims=1), "Prep turns the corner on the mirror line", tol=0.0)
+
+
 def check_nodes():
     img, band = make_strip(96, 384, 768, 300)
     prep, kit = nb.SeamlessBorderPrepPixaroma(), nb.SeamlessBorderKitPixaroma()
-    canvas, mask, info = prep.prep(img.unsqueeze(0), 0, 0, 2.0, "Top")
+    canvas, mask, info = prep.prep(img.unsqueeze(0), 0, 0, 2.0, "Top", corner_at="Strip edge")
     assert canvas.shape[1] % 64 == 0 and mask.shape == canvas.shape[:3]
     eq(info["band"], band, "Prep cuts the band", tol=0.0)
     outs = kit.kit(canvas, info, 12, 2)
@@ -164,7 +178,7 @@ def check_nodes():
     eq(outs[1][0, :t - 1, t - 1], band[:t - 1, w - 1], "resized result still joins exactly")
     # outer edge Bottom flips the band; RGBA strips use the first 3 channels
     rgba = torch.cat([img, torch.ones(*img.shape[:2], 1)], -1).unsqueeze(0)
-    _, _, info2 = prep.prep(rgba, 0, 0, 2.0, "Bottom")
+    _, _, info2 = prep.prep(rgba, 0, 0, 2.0, "Bottom", corner_at="Strip edge")
     eq(info2["band"], band.flip(0), "outer edge Bottom", tol=0.0)
     try:
         prep.prep(torch.stack([img, img]), 0, 0, 2.0, "Top")
@@ -177,5 +191,7 @@ if __name__ == "__main__":
     check_find_band()
     for t, w in ((96, 384), (37, 203), (300, 256), (16, 16)):
         check_geometry(t, w)
+    for t, w, shift in ((96, 384, 37), (300, 512, 201), (40, 90, 0)):
+        check_mirror(t, w, shift)
     check_nodes()
     print("ALL OK")
